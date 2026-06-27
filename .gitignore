@@ -1,0 +1,12 @@
+# 数据文件 (太大，不上传)
+openfly_syn_parquet/
+openfly_to_airvln_data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
