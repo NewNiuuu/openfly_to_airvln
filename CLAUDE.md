@@ -27,6 +27,8 @@ openfly_to_airvln/
 │   ├── convert_metadata_to_airvln.py             # 阶段3：生成AirVLN标注jsonl
 │   ├── fix_slashes.py                            # 阶段4：修正路径斜杠
 │   └── run_pipeline.sh                           # 自动化脚本（传参运行单个子文件夹）
+├── doc/
+│   └── changelog.md                              # 项目运行日志
 └── CLAUDE.md                                     # 本文件
 ```
 
@@ -81,7 +83,11 @@ python scripts/fix_slashes.py --subfolder high_average
 
 ## 4阶段流水线
 
-1. **下载** (`download_parquet.py`): 从 hf-mirror.com 下载指定子文件夹的 parquet 文件，支持断点续传
+1. **下载** (`download_parquet.py`): 从 hf-mirror.com 下载指定子文件夹的 parquet 文件
+   - `?recursive=true` 递归穿透子目录
+   - 自动翻页突破 HF API 1000 文件上限
+   - 16线程并发下载（`--workers` 可调）
+   - 断点续传：已存在文件自动跳过
 2. **解压** (`batch_restore.py`): 16线程并发将 parquet 解包为 metadata.json + images/，支持跳过已还原文件
 3. **转标注** (`convert_metadata_to_airvln.py`): 读取 metadata.json + train.json 中的 instruction，生成 AirVLN 格式 jsonl
 4. **修斜杠** (`fix_slashes.py`): 修正 metadata.json 中的路径反斜杠和文件名映射
@@ -98,3 +104,8 @@ python scripts/fix_slashes.py --subfolder high_average
 - 数据量大，每次只跑一个子文件夹，跑完检查内存再继续
 - `train.json` 是所有子文件夹共享的 instruction 索引，不要删除
 - 所有脚本的工作目录需为项目根目录 `/root/nyp/openfly_to_airvln/`
+
+## Session 规则
+
+- **每次修改必须同步更新 `doc/changelog.md` 运行日志**，用最简洁的语言记录：日期、改了什么、为什么改
+- 每个新 session 启动时先读本文件，了解项目状态后再开始工作
