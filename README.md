@@ -2,66 +2,52 @@
 
 将 HuggingFace 上的 [OpenFly 数据集](https://huggingface.co/datasets/IPEC-COMMUNITY/OpenFly)（parquet 格式）转换为 AirVLN 格式的 SFT 训练数据。
 
-## 项目结构
+---
 
-```
-openfly_to_airvln/
-├── openfly_syn_parquet/                          # 阶段1产物：下载的parquet文件
-│   └── env_ue_bigcity/astar_data/
-│       ├── high_average/*.parquet
-│       ├── high_long/*.parquet
-│       └── ...
-├── openfly_to_airvln_data/                       # 阶段2-4产物
-│   ├── high_average/                             # 解压后的轨迹数据
-│   │   └── <traj_id>/
-│   │       ├── metadata.json
-│   │       └── images/*.png
-│   ├── high_long/
-│   │   └── ...
-│   ├── annotation/                               # AirVLN标注文件（每子文件夹一个jsonl）
-│   │   ├── high_average.jsonl
-│   │   ├── high_long.jsonl
-│   │   └── ...
-│   └── train.json                                # instruction索引（需提前准备）
-├── scripts/
-│   ├── download_parquet.py                       # 阶段1：从hf-mirror下载parquet
-│   ├── batch_restore.py                          # 阶段2：解压parquet→图片+metadata
-│   ├── convert_metadata_to_airvln.py             # 阶段3：生成AirVLN标注jsonl
-│   ├── fix_slashes.py                            # 阶段4：修正路径斜杠
-│   └── run_pipeline.sh                           # 一键自动化脚本
-├── CLAUDE.md
-└── README.md
-```
+## 快速开始
 
-## 环境准备
-
-### 依赖安装
+### 1. 创建虚拟环境
 
 ```bash
-pip install pandas pyarrow requests
+# 创建 conda 环境
+conda create -n openfly python=3.10 -y
+
+# 激活环境
+conda activate openfly
 ```
 
-### 环境变量
+### 2. 安装依赖
 
-运行前需设置 HuggingFace Token：
+```bash
+cd /root/nyp/openfly_to_airvln
+pip install -r requirements.txt
+```
+
+依赖包说明：
+
+| 包名 | 用途 |
+|------|------|
+| `requests` | 从 HuggingFace 镜像站下载 parquet 文件 |
+| `pandas` | 解析 parquet 数据为 DataFrame |
+| `pyarrow` | 读取 parquet 文件格式 |
+
+### 3. 配置环境变量
 
 ```bash
 export HF_TOKEN="your_huggingface_token"
 ```
 
-### 数据准备
+> 如果不设置，脚本仍会尝试匿名下载，但可能会受到速率限制。
+
+### 4. 准备数据
 
 确保 `openfly_to_airvln_data/train.json` 已存在（instruction 索引文件，所有子文件夹共用）。
 
-## 使用方法
+### 5. 一键运行
 
-### 一键运行（推荐）
-
-每次传入一个子文件夹名，自动完成 下载 → 解压 → 转标注 → 修斜杠 全流程：
+每次传入一个子文件夹名，自动完成 **下载 → 解压 → 转标注 → 修斜杠** 全流程：
 
 ```bash
-cd /path/to/openfly_to_airvln
-
 # 跑一个子文件夹
 bash scripts/run_pipeline.sh high_average
 
@@ -72,7 +58,11 @@ free -h
 bash scripts/run_pipeline.sh high_long
 ```
 
-### 可选子文件夹列表
+---
+
+## 可选子文件夹列表
+
+共 12 个子文件夹，来源于 `env_ue_bigcity/astar_data`：
 
 | 子文件夹 | 说明 |
 |----------|------|
@@ -89,9 +79,11 @@ bash scripts/run_pipeline.sh high_long
 | `medium_long_updown` | 中空-长距离-升降 |
 | `medium_short_updown` | 中空-短距离-升降 |
 
-### 分阶段运行
+---
 
-也可以单独运行各阶段：
+## 分阶段运行
+
+也可以单独运行各阶段（适用于调试或部分重跑）：
 
 ```bash
 # 阶段1: 下载 parquet 文件
@@ -113,21 +105,59 @@ python scripts/convert_metadata_to_airvln.py \
 python scripts/fix_slashes.py --subfolder high_average
 ```
 
-## 4阶段流水线说明
+---
+
+## 4 阶段流水线说明
 
 | 阶段 | 脚本 | 功能 | 特性 |
 |------|------|------|------|
-| 1 | `download_parquet.py` | 从 hf-mirror.com 下载 parquet 文件 | 断点续传（跳过已下载文件） |
+| 1 | `download_parquet.py` | 从 hf-mirror.com 下载 parquet 文件 | 递归扫描 + 自动翻页 + 16线程并发 + 断点续传 |
 | 2 | `batch_restore.py` | 解包 parquet 为 metadata.json + images/ | 16线程并发，跳过已还原轨迹 |
 | 3 | `convert_metadata_to_airvln.py` | 生成 AirVLN 格式标注 jsonl | 按 step=4 切 turn，支持 continue_on_error |
 | 4 | `fix_slashes.py` | 修正 metadata 中的反斜杠和文件名映射 | 自动匹配磁盘上的真实文件名 |
+
+---
+
+## 项目结构
+
+```
+openfly_to_airvln/
+├── scripts/
+│   ├── download_parquet.py                       # 阶段1：从hf-mirror下载parquet
+│   ├── batch_restore.py                          # 阶段2：解压parquet→图片+metadata
+│   ├── convert_metadata_to_airvln.py             # 阶段3：生成AirVLN标注jsonl
+│   ├── fix_slashes.py                            # 阶段4：修正路径斜杠
+│   └── run_pipeline.sh                           # 一键自动化脚本
+├── openfly_syn_parquet/                          # 中间产物：下载的parquet文件
+│   └── env_ue_bigcity/astar_data/
+│       ├── high_average/*.parquet
+│       └── ...
+├── openfly_to_airvln_data/                       # 最终产物
+│   ├── <subfolder>/                              # 解压后的轨迹数据
+│   │   └── <traj_id>/
+│   │       ├── metadata.json
+│   │       └── images/*.png
+│   ├── annotation/                               # AirVLN标注文件（每子文件夹一个jsonl）
+│   │   ├── high_average.jsonl
+│   │   └── ...
+│   └── train.json                                # instruction索引（需提前准备）
+├── doc/
+│   └── changelog.md                              # 项目运行日志
+├── requirements.txt                              # Python 依赖
+├── CLAUDE.md
+└── README.md
+```
+
+---
 
 ## 注意事项
 
 - **内存控制**：数据量大，建议每次只跑一个子文件夹，跑完用 `free -h` 检查内存再继续
 - **断点续传**：所有阶段均支持中断后重跑，会自动跳过已完成部分
 - **错误处理**：`run_pipeline.sh` 在任何阶段失败时会立即停止，不会继续后续阶段
-- **工作目录**：所有脚本需在项目根目录下运行
+- **工作目录**：所有脚本需在项目根目录 `/root/nyp/openfly_to_airvln/` 下运行
+
+---
 
 ## 数据来源
 

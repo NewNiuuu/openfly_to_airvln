@@ -1,5 +1,11 @@
 # 项目运行日志
 
+## 2026-06-28
+
+- **README 虚拟环境改为 conda 流程**：`python -m venv` → `conda create` + `conda activate`
+- **添加 `requirements.txt`**：列出第三方依赖（requests、pandas、pyarrow），方便新环境一键安装
+- **重写 `README.md`**：快速开始（创建虚拟环境→安装依赖→运行）置顶，项目结构和详细说明后置
+
 ## 2026-06-27
 
 - **修复 `download_parquet.py` 三个致命问题**：
