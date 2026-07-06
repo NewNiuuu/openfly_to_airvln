@@ -40,7 +40,8 @@ DATASET_BASE_DIR = "./openfly_to_airvln_data"
 ANNOTATION_BASE_DIR = "./openfly_to_airvln_data/annotation"
 BLOB_BASE_URL = "https://yifanyang.blob.core.windows.net/yifanyang"
 BLOB_SAS_TOKEN = os.environ.get("BLOB_SAS_TOKEN", "")
-BLOB_TARGET_PREFIX = "vln/openfly"  # blob 上的目标根目录
+BLOB_UPLOAD_PREFIX = "output/liyan/vln/openfly"  # blob 上传的实际路径前缀
+IMAGE_PATH_PREFIX = "vln/openfly"  # 标注 JSONL 中的 image 路径前缀（训练时用）
 # ==================================================
 
 
@@ -107,7 +108,7 @@ def step2_fix_image_paths(env, dry_run=False):
     print(f"{'='*60}\n", flush=True)
 
     annotation_dir = os.path.join(ANNOTATION_BASE_DIR, env)
-    prefix = BLOB_TARGET_PREFIX  # "vln/openfly"
+    prefix = IMAGE_PATH_PREFIX  # "vln/openfly"
 
     jsonl_files = sorted(glob.glob(os.path.join(annotation_dir, "*.jsonl")))
     jsonl_files = [f for f in jsonl_files if os.path.getsize(f) > 0]
@@ -161,13 +162,13 @@ def step3_upload_blob(env, dry_run=False):
         return False
 
     # 目标路径: vln/openfly/env_ue_bigcity/
-    blob_data_target = f"{BLOB_BASE_URL}/{BLOB_TARGET_PREFIX}/{env}/?{sas}"
-    blob_anno_target = f"{BLOB_BASE_URL}/{BLOB_TARGET_PREFIX}/annotation/{env}/?{sas}"
+    blob_data_target = f"{BLOB_BASE_URL}/{BLOB_UPLOAD_PREFIX}/{env}/?{sas}"
+    blob_anno_target = f"{BLOB_BASE_URL}/{BLOB_UPLOAD_PREFIX}/annotation/{env}/?{sas}"
 
     # 上传数据目录（图片 + metadata）
     data_src = data_dir.rstrip("/") + "/*"
     print(f"  📤 上传数据: {data_dir}", flush=True)
-    print(f"     → blob: {BLOB_TARGET_PREFIX}/{env}/", flush=True)
+    print(f"     → blob: {BLOB_UPLOAD_PREFIX}/{env}/", flush=True)
     if dry_run:
         print(f"  [DRY-RUN] 跳过实际上传", flush=True)
     else:
@@ -182,7 +183,7 @@ def step3_upload_blob(env, dry_run=False):
     # 上传标注文件
     anno_src = annotation_dir.rstrip("/") + "/*"
     print(f"\n  📤 上传标注: {annotation_dir}", flush=True)
-    print(f"     → blob: {BLOB_TARGET_PREFIX}/annotation/{env}/", flush=True)
+    print(f"     → blob: {BLOB_UPLOAD_PREFIX}/annotation/{env}/", flush=True)
     if dry_run:
         print(f"  [DRY-RUN] 跳过实际上传", flush=True)
     else:
@@ -211,7 +212,7 @@ def main():
     args = parser.parse_args()
 
     print(f"🚀 准备上传 {args.env} 到 Blob", flush=True)
-    print(f"   Blob 目标: {BLOB_BASE_URL}/{BLOB_TARGET_PREFIX}/{args.env}/", flush=True)
+    print(f"   Blob 目标: {BLOB_BASE_URL}/{BLOB_UPLOAD_PREFIX}/{args.env}/", flush=True)
     if args.subfolder:
         print(f"   子文件夹: {args.subfolder}", flush=True)
     if args.dry_run:
@@ -253,7 +254,7 @@ def _process_single_subfolder(env, subfolder, dry_run=False, skip_upload=False):
         return
 
     # 修正 image 路径
-    prefix = BLOB_TARGET_PREFIX
+    prefix = IMAGE_PATH_PREFIX
     rows = []
     with open(jsonl_path, 'r') as f:
         for line in f:
@@ -282,7 +283,7 @@ def _process_single_subfolder(env, subfolder, dry_run=False, skip_upload=False):
         return
 
     # 上传数据
-    blob_data_target = f"{BLOB_BASE_URL}/{BLOB_TARGET_PREFIX}/{env}/{subfolder}/?{sas}"
+    blob_data_target = f"{BLOB_BASE_URL}/{BLOB_UPLOAD_PREFIX}/{env}/{subfolder}/?{sas}"
     data_src = data_dir.rstrip("/") + "/*"
     print(f"  📤 上传: {subfolder}/", flush=True)
     if not dry_run:
@@ -295,7 +296,7 @@ def _process_single_subfolder(env, subfolder, dry_run=False, skip_upload=False):
             return
 
     # 上传标注
-    blob_anno_target = f"{BLOB_BASE_URL}/{BLOB_TARGET_PREFIX}/annotation/{env}/{subfolder}.jsonl?{sas}"
+    blob_anno_target = f"{BLOB_BASE_URL}/{BLOB_UPLOAD_PREFIX}/annotation/{env}/{subfolder}.jsonl?{sas}"
     print(f"  📤 上传: annotation/{env}/{subfolder}.jsonl", flush=True)
     if not dry_run:
         result = subprocess.run(
