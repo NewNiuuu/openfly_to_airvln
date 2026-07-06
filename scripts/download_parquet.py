@@ -48,9 +48,10 @@ def fetch_all_parquet_files(folder_path, headers):
     # 核心修正2：自动翻页循环，突破 1000 文件上限
     while api_url:
         page_count += 1
+        print(f"  📡 请求第 {page_count} 页...", flush=True)
         response = requests.get(api_url, headers=headers, timeout=30)
         if response.status_code != 200:
-            print(f"❌ 获取目录失败 (第{page_count}页): {response.status_code} - {response.text}")
+            print(f"❌ 获取目录失败 (第{page_count}页): {response.status_code} - {response.text}", flush=True)
             exit(1)
 
         for f in response.json():
@@ -62,7 +63,7 @@ def fetch_all_parquet_files(folder_path, headers):
             next_url = response.links['next']['url']
             # 确保使用镜像域名
             api_url = next_url.replace('huggingface.co', 'hf-mirror.com')
-            print(f"  📄 第{page_count}页完成，累计 {len(parquet_files)} 个文件，继续翻页...")
+            print(f"  📄 第{page_count}页完成，累计 {len(parquet_files)} 个文件，继续翻页...", flush=True)
         else:
             break
 
@@ -109,19 +110,20 @@ def download_subfolder(env, subfolder, workers):
 
     headers = {"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}
 
-    print(f"🔍 正在深入扫描并翻页获取 {folder_path} 的全量文件列表...")
+    print(f"🔍 正在扫描 {folder_path} 的全量文件列表...", flush=True)
     parquet_files = fetch_all_parquet_files(folder_path, headers)
 
     if not parquet_files:
-        print(f"⚠️ 未找到任何 parquet 文件，请检查子文件夹名称是否正确: {subfolder}")
+        print(f"⚠️ 未找到任何 parquet 文件，请检查子文件夹名称是否正确: {subfolder}", flush=True)
         exit(1)
 
-    print(f"✅ 彻底扫描完毕！共锁定 {len(parquet_files)} 个 Parquet 文件。")
-    print(f"🚀 启动 {workers} 线程并行下载...\n")
+    print(f"✅ 扫描完毕！共锁定 {len(parquet_files)} 个 Parquet 文件。", flush=True)
+    print(f"🚀 启动 {workers} 线程并行下载...\n", flush=True)
 
     success_count = 0
     skip_count = 0
     fail_count = 0
+    total_files = len(parquet_files)
 
     # 核心修正3：多线程并发下载
     with ThreadPoolExecutor(max_workers=workers) as executor:
@@ -132,18 +134,25 @@ def download_subfolder(env, subfolder, workers):
 
         for future in as_completed(future_to_file):
             status, msg = future.result()
-            print(msg)
+            done = success_count + skip_count + fail_count + 1
             if status == "success":
                 success_count += 1
+                print(f"  [{done}/{total_files}] {msg}", flush=True)
             elif status == "skip":
                 skip_count += 1
+                # 跳过的文件只在少量时打印，避免刷屏
+                if skip_count <= 5 or skip_count % 100 == 0:
+                    print(f"  [{done}/{total_files}] {msg}", flush=True)
+                elif skip_count == 6:
+                    print(f"  ... 后续跳过的文件不再逐条显示 ...", flush=True)
             else:
                 fail_count += 1
+                print(f"  [{done}/{total_files}] {msg}", flush=True)
 
-    print(f"\n🎉 下载完成！成功: {success_count}, 跳过: {skip_count}, 失败: {fail_count}")
-    print(f"   总计: {success_count + skip_count + fail_count} / {len(parquet_files)}")
+    print(f"\n🎉 下载完成！成功: {success_count}, 跳过: {skip_count}, 失败: {fail_count}", flush=True)
+    print(f"   总计: {success_count + skip_count + fail_count} / {len(parquet_files)}", flush=True)
     if fail_count > 0:
-        print(f"⚠️ 有 {fail_count} 个文件下载失败，请重新运行脚本补齐（已下载文件会自动跳过）")
+        print(f"⚠️ 有 {fail_count} 个文件下载失败，请重新运行脚本补齐（已下载文件会自动跳过）", flush=True)
         exit(1)
 
 

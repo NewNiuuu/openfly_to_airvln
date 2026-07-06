@@ -2,6 +2,7 @@
 
 ## 2026-07-06
 
+- **优化终端输出**：所有 Python 脚本加 `flush=True` 保证实时输出；`run_all_subfolders.sh` 改用 `tee` 实时显示子流程输出（不再静默捕获）；大量跳过文件时折叠输出避免刷屏
 - **新增 `run_all_subfolders.sh`**：批量脚本，只传环境名即可依次处理所有12种轨迹类型，结束后输出磁盘空间和汇总报告（含成功/跳过/失败统计）
 - **新增阶段5 `cleanup_unused_frames.py`**：标注生成后删除未被引用的图片帧（step=4抽帧逻辑导致约3/4的帧冗余），支持 `--dry-run` 预览
 - **新增阶段6 `cleanup_parquet.py`**：删除已解压的中间 parquet 文件释放磁盘空间，支持 `--dry-run` 预览

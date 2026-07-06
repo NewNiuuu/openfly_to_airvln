@@ -88,9 +88,10 @@ for i in "${!ALL_SUBFOLDERS[@]}"; do
 
     SUB_START=$(date +%s)
 
-    # 调用单个子文件夹的 pipeline
-    OUTPUT=$(bash scripts/run_pipeline.sh "$ENV" "$SUBFOLDER" 2>&1)
-    EXIT_CODE=$?
+    # 调用单个子文件夹的 pipeline，输出实时显示到终端，同时捕获用于错误判断
+    LOG_FILE="/tmp/openfly_pipeline_${ENV}_${SUBFOLDER}.log"
+    bash scripts/run_pipeline.sh "$ENV" "$SUBFOLDER" 2>&1 | tee "$LOG_FILE"
+    EXIT_CODE=${PIPESTATUS[0]}
 
     SUB_END=$(date +%s)
     SUB_DURATION=$((SUB_END - SUB_START))
@@ -100,22 +101,23 @@ for i in "${!ALL_SUBFOLDERS[@]}"; do
     if [ $EXIT_CODE -eq 0 ]; then
         STATUS_LIST[$i]="success"
         DETAIL_LIST[$i]="耗时 ${SUB_MIN}m${SUB_SEC}s"
-        echo -e "${GREEN}  ✅ 成功 (${SUB_MIN}m${SUB_SEC}s)${NC}"
+        echo -e "${GREEN}  ✅ [${IDX}/${TOTAL}] ${SUBFOLDER} 成功 (${SUB_MIN}m${SUB_SEC}s)${NC}"
     else
         # 检查是否是因为 train.json 中没有对应数据
-        if echo "$OUTPUT" | grep -q "instruction 为 None\|总计 0 trajectory"; then
+        if grep -q "instruction 为 None\|总计 0 trajectory" "$LOG_FILE"; then
             STATUS_LIST[$i]="skipped"
             DETAIL_LIST[$i]="不在 train.json 中"
-            echo -e "${YELLOW}  ⏭️  跳过 — 该轨迹类型不在 train.json 中 (${SUB_MIN}m${SUB_SEC}s)${NC}"
+            echo -e "${YELLOW}  ⏭️  [${IDX}/${TOTAL}] ${SUBFOLDER} 跳过 — 不在 train.json 中 (${SUB_MIN}m${SUB_SEC}s)${NC}"
         else
             STATUS_LIST[$i]="failed"
             # 提取最后一行错误信息
-            LAST_ERR=$(echo "$OUTPUT" | grep -E "❌|Error|error|失败" | tail -1)
+            LAST_ERR=$(grep -E "❌|Error|error|失败" "$LOG_FILE" | tail -1)
             DETAIL_LIST[$i]="失败: ${LAST_ERR:-未知错误}"
-            echo -e "${RED}  ❌ 失败 (${SUB_MIN}m${SUB_SEC}s)${NC}"
+            echo -e "${RED}  ❌ [${IDX}/${TOTAL}] ${SUBFOLDER} 失败 (${SUB_MIN}m${SUB_SEC}s)${NC}"
             echo -e "${RED}     ${LAST_ERR:-查看日志获取详情}${NC}"
         fi
     fi
+    rm -f "$LOG_FILE"
     echo ""
 done
 

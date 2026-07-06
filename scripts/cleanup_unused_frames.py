@@ -63,19 +63,19 @@ def cleanup_unused_frames(env, subfolder, dry_run=False):
     dataset_dir = os.path.join(DATASET_BASE_DIR, env, subfolder)
 
     if not os.path.exists(jsonl_path):
-        print(f"❌ 标注文件不存在: {jsonl_path}")
-        print("   请确保阶段3（转标注）已完成。")
+        print(f"❌ 标注文件不存在: {jsonl_path}", flush=True)
+        print("   请确保阶段3（转标注）已完成。", flush=True)
         exit(1)
 
     if not os.path.exists(dataset_dir):
-        print(f"❌ 数据目录不存在: {dataset_dir}")
+        print(f"❌ 数据目录不存在: {dataset_dir}", flush=True)
         exit(1)
 
     # 1. 收集所有被引用的图片
-    print(f"📖 解析标注文件: {jsonl_path}")
+    print(f"📖 解析标注文件: {jsonl_path}", flush=True)
     referenced = collect_referenced_images(jsonl_path)
     total_referenced = sum(len(v) for v in referenced.values())
-    print(f"   → 共 {len(referenced)} 条轨迹, {total_referenced} 张被引用的图片")
+    print(f"   → 共 {len(referenced)} 条轨迹, {total_referenced} 张被引用的图片", flush=True)
 
     # 2. 遍历所有轨迹目录，找出未引用的帧
     traj_dirs = glob.glob(os.path.join(dataset_dir, "*/images"))
@@ -109,18 +109,18 @@ def cleanup_unused_frames(env, subfolder, dry_run=False):
 
     # 3. 输出统计
     action = "将删除" if dry_run else "已删除"
-    print(f"\n📊 清理统计:")
-    print(f"   保留: {total_kept} 张 (标注引用)")
-    print(f"   {action}: {total_deleted} 张 (未引用)")
-    print(f"   跳过轨迹: {total_skipped_trajs} 条 (不在标注中)")
+    print(f"\n📊 清理统计:", flush=True)
+    print(f"   保留: {total_kept} 张 (标注引用)", flush=True)
+    print(f"   {action}: {total_deleted} 张 (未引用)", flush=True)
+    print(f"   跳过轨迹: {total_skipped_trajs} 条 (不在标注中)", flush=True)
 
     if dry_run:
-        print(f"\n⚠️  DRY-RUN 模式，未实际删除任何文件。去掉 --dry-run 参数执行真正清理。")
+        print(f"\n⚠️  DRY-RUN 模式，未实际删除任何文件。去掉 --dry-run 参数执行真正清理。", flush=True)
     else:
         if total_deleted > 0:
-            print(f"\n✅ 清理完成！释放了约 {total_deleted} 张未引用帧。")
+            print(f"\n✅ 清理完成！释放了约 {total_deleted} 张未引用帧。", flush=True)
         else:
-            print(f"\n✅ 没有需要清理的未引用帧。")
+            print(f"\n✅ 没有需要清理的未引用帧。", flush=True)
 
 
 def main():

@@ -26,7 +26,7 @@ def cleanup_parquet(env, subfolder, dry_run=False):
     parquet_dir = os.path.join(PARQUET_BASE_DIR, env, "astar_data", subfolder)
 
     if not os.path.exists(parquet_dir):
-        print(f"ℹ️  Parquet 目录不存在（可能已清理）: {parquet_dir}")
+        print(f"ℹ️  Parquet 目录不存在（可能已清理）: {parquet_dir}", flush=True)
         return
 
     # 计算目录大小
@@ -46,17 +46,17 @@ def cleanup_parquet(env, subfolder, dry_run=False):
     else:
         size_str = f"{size_mb:.1f} MB"
 
-    print(f"🗂️  Parquet 目录: {parquet_dir}")
-    print(f"   文件数: {file_count}")
-    print(f"   占用空间: {size_str}")
+    print(f"🗂️  Parquet 目录: {parquet_dir}", flush=True)
+    print(f"   文件数: {file_count}", flush=True)
+    print(f"   占用空间: {size_str}", flush=True)
 
     if dry_run:
-        print(f"\n⚠️  DRY-RUN 模式，未实际删除。去掉 --dry-run 参数执行真正清理。")
+        print(f"\n⚠️  DRY-RUN 模式，未实际删除。去掉 --dry-run 参数执行真正清理。", flush=True)
         return
 
     # 删除整个子文件夹目录
     shutil.rmtree(parquet_dir)
-    print(f"\n✅ 已删除 parquet 中间文件，释放 {size_str} 磁盘空间。")
+    print(f"\n✅ 已删除 parquet 中间文件，释放 {size_str} 磁盘空间。", flush=True)
 
 
 def main():

@@ -98,9 +98,10 @@ def main():
     # 递归查找目录下所有的 parquet 文件
     parquet_files = glob.glob(os.path.join(src_dir, "**/*.parquet"), recursive=True)
     total_files = len(parquet_files)
-    print(f"📦 找到 {total_files} 个 Parquet 文件，开始以 {args.workers} 线程批量解压...\n")
+    print(f"📦 找到 {total_files} 个 Parquet 文件，开始以 {args.workers} 线程批量解压...\n", flush=True)
 
     success_count = 0
+    skip_count = 0
     fail_count = 0
 
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
@@ -108,13 +109,21 @@ def main():
 
         for i, future in enumerate(as_completed(futures), 1):
             result = future.result()
-            print(f"[{i}/{total_files}] {result}")
-            if result.startswith("❌"):
+            if "跳过" in result:
+                skip_count += 1
+                # 跳过的条目只在少量时打印
+                if skip_count <= 5 or skip_count % 100 == 0:
+                    print(f"  [{i}/{total_files}] {result}", flush=True)
+                elif skip_count == 6:
+                    print(f"  ... 后续跳过的条目不再逐条显示 ...", flush=True)
+            elif result.startswith("❌"):
                 fail_count += 1
+                print(f"  [{i}/{total_files}] {result}", flush=True)
             else:
                 success_count += 1
+                print(f"  [{i}/{total_files}] {result}", flush=True)
 
-    print(f"\n🎉 解压完成！成功: {success_count}, 失败: {fail_count}")
+    print(f"\n🎉 解压完成！成功: {success_count}, 跳过: {skip_count}, 失败: {fail_count}", flush=True)
     if fail_count > 0:
         exit(1)
 

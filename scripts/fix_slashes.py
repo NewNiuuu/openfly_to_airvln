@@ -20,13 +20,16 @@ DEFAULT_ENV = "env_ue_bigcity"
 
 def fix_metadata_paths(dataset_dir):
     if not os.path.exists(dataset_dir):
-        print(f"❌ 找不到目录: {dataset_dir}")
+        print(f"❌ 找不到目录: {dataset_dir}", flush=True)
         exit(1)
 
     # 递归抓取所有的 metadata.json
     json_files = glob.glob(os.path.join(dataset_dir, "**/metadata.json"), recursive=True)
     total = len(json_files)
-    print(f"🔍 找到 {total} 个 metadata.json 文件，开始纠正路径与名称...")
+    print(f"🔍 找到 {total} 个 metadata.json 文件，开始纠正路径与名称...", flush=True)
+
+    fixed_count = 0
+    fail_count = 0
 
     for idx, json_path in enumerate(json_files, 1):
         traj_dir = os.path.dirname(json_path)
@@ -37,7 +40,8 @@ def fix_metadata_paths(dataset_dir):
             try:
                 data = json.load(f)
             except Exception as e:
-                print(f" [{idx}/{total}] ❌ 读取失败 {json_path}: {e}")
+                fail_count += 1
+                print(f"  [{idx}/{total}] ❌ 读取失败 {json_path}: {e}", flush=True)
                 continue
 
         # 2. 盘点当前轨迹 images 目录下真实存在的物理图片
@@ -64,9 +68,12 @@ def fix_metadata_paths(dataset_dir):
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
 
-        print(f" [{idx}/{total}] ✅ 已修正: {os.path.basename(traj_dir)}")
+        fixed_count += 1
+        # 每100个或最后一个打印进度
+        if idx <= 3 or idx % 100 == 0 or idx == total:
+            print(f"  [{idx}/{total}] ✅ 已修正: {os.path.basename(traj_dir)}", flush=True)
 
-    print(f"\n🎉 所有 metadata.json 路径修正完毕！")
+    print(f"\n🎉 路径修正完毕！成功: {fixed_count}, 失败: {fail_count}", flush=True)
 
 
 def main():
