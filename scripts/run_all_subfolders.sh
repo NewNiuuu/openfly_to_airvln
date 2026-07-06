@@ -119,6 +119,11 @@ for i in "${!ALL_SUBFOLDERS[@]}"; do
     fi
     rm -f "$LOG_FILE"
     echo ""
+
+    # 子文件夹之间冷却 3 秒，避免连续请求触发 HF API 限流
+    if [ $IDX -lt $TOTAL ]; then
+        sleep 3
+    fi
 done
 
 # =============================================================================

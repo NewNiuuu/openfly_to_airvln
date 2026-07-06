@@ -15,6 +15,7 @@ download_parquet.py
 """
 
 import os
+import time
 import argparse
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -29,7 +30,45 @@ DEFAULT_WORKERS = 16
 DEFAULT_ENV = "env_ue_bigcity"
 CHUNK_SIZE = 65536  # 64KB per chunk for better throughput
 DOWNLOAD_TIMEOUT = 120  # 大文件需要更长超时
+API_MAX_RETRIES = 5  # API 请求最大重试次数
+API_RETRY_BASE_WAIT = 10  # 重试基础等待秒数（指数退避）
 # ==================================================
+
+
+def request_with_retry(url, headers, timeout=30, max_retries=API_MAX_RETRIES):
+    """带重试机制的 HTTP GET 请求，处理 429 限流和网络错误。"""
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.get(url, headers=headers, timeout=timeout)
+
+            if response.status_code == 200:
+                return response
+
+            if response.status_code == 429:
+                # 限流：指数退避等待
+                wait = API_RETRY_BASE_WAIT * attempt
+                print(f"  ⏳ 被限流 (429)，等待 {wait}s 后重试 (第{attempt}/{max_retries}次)...", flush=True)
+                time.sleep(wait)
+                continue
+
+            if response.status_code >= 500:
+                # 服务器错误：短暂等待后重试
+                wait = 5 * attempt
+                print(f"  ⚠️ 服务器错误 ({response.status_code})，等待 {wait}s 后重试 (第{attempt}/{max_retries}次)...", flush=True)
+                time.sleep(wait)
+                continue
+
+            # 其他错误（如 404）不重试
+            return response
+
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            wait = 5 * attempt
+            print(f"  ⚠️ 网络错误: {e}，等待 {wait}s 后重试 (第{attempt}/{max_retries}次)...", flush=True)
+            time.sleep(wait)
+
+    # 全部重试失败
+    print(f"❌ 请求失败，已重试 {max_retries} 次: {url}", flush=True)
+    return None
 
 
 def fetch_all_parquet_files(folder_path, headers):
@@ -49,9 +88,11 @@ def fetch_all_parquet_files(folder_path, headers):
     while api_url:
         page_count += 1
         print(f"  📡 请求第 {page_count} 页...", flush=True)
-        response = requests.get(api_url, headers=headers, timeout=30)
-        if response.status_code != 200:
-            print(f"❌ 获取目录失败 (第{page_count}页): {response.status_code} - {response.text}", flush=True)
+        response = request_with_retry(api_url, headers, timeout=30)
+        if response is None or response.status_code != 200:
+            status = response.status_code if response else "无响应"
+            text = response.text if response else "重试耗尽"
+            print(f"❌ 获取目录失败 (第{page_count}页): {status} - {text}", flush=True)
             exit(1)
 
         for f in response.json():
@@ -87,18 +128,26 @@ def download_single_file(file_path, local_dir, headers):
 
     download_url = f"{MIRROR_URL}/datasets/{REPO_ID}/resolve/main/{file_path}"
 
-    try:
-        with requests.get(download_url, headers=headers, stream=True, timeout=DOWNLOAD_TIMEOUT) as r:
-            r.raise_for_status()
-            with open(save_path, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
-                    f.write(chunk)
-        return ("success", f"✅ 成功: {file_name}")
-    except Exception as e:
-        # 删除可能写了一半的残缺文件
-        if os.path.exists(save_path):
-            os.remove(save_path)
-        return ("fail", f"❌ 失败: {file_name} ({e})")
+    for attempt in range(1, API_MAX_RETRIES + 1):
+        try:
+            with requests.get(download_url, headers=headers, stream=True, timeout=DOWNLOAD_TIMEOUT) as r:
+                if r.status_code == 429:
+                    wait = API_RETRY_BASE_WAIT * attempt
+                    time.sleep(wait)
+                    continue
+                r.raise_for_status()
+                with open(save_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
+                        f.write(chunk)
+            return ("success", f"✅ 成功: {file_name}")
+        except Exception as e:
+            # 删除可能写了一半的残缺文件
+            if os.path.exists(save_path):
+                os.remove(save_path)
+            if attempt < API_MAX_RETRIES:
+                time.sleep(5 * attempt)
+                continue
+            return ("fail", f"❌ 失败: {file_name} ({e})")
 
 
 def download_subfolder(env, subfolder, workers):
