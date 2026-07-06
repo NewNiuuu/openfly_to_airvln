@@ -88,10 +88,10 @@ echo ""
 # 阶段1: 下载 parquet 数据
 # =============================================================================
 if [ "${SKIP_DOWNLOAD}" = "1" ]; then
-    echo -e "${YELLOW} [阶段 1/6] 下载 parquet 数据 — 已跳过（SKIP_DOWNLOAD=1）${NC}"
+    echo -e "${YELLOW} [阶段 1/8] 下载 parquet 数据 — 已跳过（SKIP_DOWNLOAD=1）${NC}"
 elif [ "${USE_CACHE}" = "1" ]; then
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${YELLOW} [阶段 1/6] 下载 parquet 数据（从缓存列表）${NC}"
+    echo -e "${YELLOW} [阶段 1/8] 下载 parquet 数据（从缓存列表）${NC}"
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
     python scripts/download_parquet.py --env "$ENV" --subfolder "$SUBFOLDER" --from-cache
@@ -104,7 +104,7 @@ elif [ "${USE_CACHE}" = "1" ]; then
     fi
 else
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${YELLOW} [阶段 1/6] 下载 parquet 数据${NC}"
+    echo -e "${YELLOW} [阶段 1/8] 下载 parquet 数据${NC}"
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
     python scripts/download_parquet.py --env "$ENV" --subfolder "$SUBFOLDER"
@@ -122,7 +122,7 @@ echo ""
 # 阶段2: 解压 parquet 数据
 # =============================================================================
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${YELLOW} [阶段 2/6] 解压 parquet 数据 (16线程)${NC}"
+echo -e "${YELLOW} [阶段 2/8] 解压 parquet 数据 (16线程)${NC}"
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 python scripts/batch_restore.py --env "$ENV" --subfolder "$SUBFOLDER"
@@ -139,7 +139,7 @@ echo ""
 # 阶段3: 转换 metadata 为 AirVLN 标注格式
 # =============================================================================
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${YELLOW} [阶段 3/6] 转换 metadata → AirVLN annotation${NC}"
+echo -e "${YELLOW} [阶段 3/8] 转换 metadata → AirVLN annotation${NC}"
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 RESTORED_ROOT="./openfly_to_airvln_data/${ENV}/${SUBFOLDER}"
@@ -169,7 +169,7 @@ echo ""
 # 阶段4: 修正 metadata.json 路径斜杠
 # =============================================================================
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${YELLOW} [阶段 4/6] 修正 metadata.json 路径斜杠${NC}"
+echo -e "${YELLOW} [阶段 4/8] 修正 metadata.json 路径斜杠${NC}"
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 python scripts/fix_slashes.py --env "$ENV" --subfolder "$SUBFOLDER"
@@ -186,7 +186,7 @@ echo ""
 # 阶段5: 清理未引用的图片帧
 # =============================================================================
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${YELLOW} [阶段 5/6] 清理未引用的图片帧${NC}"
+echo -e "${YELLOW} [阶段 5/8] 清理未引用的图片帧${NC}"
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 python scripts/cleanup_unused_frames.py --env "$ENV" --subfolder "$SUBFOLDER"
@@ -203,7 +203,7 @@ echo ""
 # 阶段6: 清理中间 parquet 文件
 # =============================================================================
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${YELLOW} [阶段 6/6] 清理中间 parquet 文件${NC}"
+echo -e "${YELLOW} [阶段 6/8] 清理中间 parquet 文件${NC}"
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 python scripts/cleanup_parquet.py --env "$ENV" --subfolder "$SUBFOLDER"
@@ -213,6 +213,48 @@ if [ $? -eq 0 ]; then
 else
     echo -e "${RED}❌ 阶段6失败: parquet 清理出错，终止流水线${NC}"
     exit 1
+fi
+echo ""
+
+# =============================================================================
+# 阶段7: 清洗 + 上传到 Azure Blob
+# =============================================================================
+if [ "${SKIP_UPLOAD}" = "1" ]; then
+    echo -e "${YELLOW} [阶段 7/8] 上传 Blob — 已跳过（SKIP_UPLOAD=1）${NC}"
+else
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW} [阶段 7/8] 清洗 + 上传到 Azure Blob${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+    python scripts/prepare_and_upload_blob.py --env "$ENV" --subfolder "$SUBFOLDER"
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ 阶段7完成: 数据已上传到 Blob${NC}"
+    else
+        echo -e "${RED}❌ 阶段7失败: 上传出错，终止流水线${NC}"
+        exit 1
+    fi
+fi
+echo ""
+
+# =============================================================================
+# 阶段8: 删除本地图片数据（已上传到 blob，释放空间）
+# =============================================================================
+if [ "${SKIP_UPLOAD}" = "1" ]; then
+    echo -e "${YELLOW} [阶段 8/8] 删除本地数据 — 已跳过（SKIP_UPLOAD=1）${NC}"
+else
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW} [阶段 8/8] 删除本地图片数据（已上传至 Blob）${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+    LOCAL_DATA_DIR="./openfly_to_airvln_data/${ENV}/${SUBFOLDER}"
+    if [ -d "$LOCAL_DATA_DIR" ]; then
+        DATA_SIZE=$(du -sh "$LOCAL_DATA_DIR" 2>/dev/null | cut -f1)
+        rm -rf "$LOCAL_DATA_DIR"
+        echo -e "${GREEN}✅ 阶段8完成: 已删除本地数据 ${LOCAL_DATA_DIR} (${DATA_SIZE})${NC}"
+    else
+        echo -e "${GREEN}✅ 阶段8完成: 本地数据已不存在${NC}"
+    fi
 fi
 echo ""
 
