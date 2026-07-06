@@ -2,6 +2,7 @@
 
 ## 2026-07-06
 
+- **修正标注 image 路径**：`default_image_prefix` 去掉 `astar_data` 层级，JSONL 中 image 路径改为 `<env>/<subfolder>/<traj_id>/images/xxx.png`，与磁盘存储路径一致
 - **修复 HF API 429 限流问题**：`download_parquet.py` 新增 `request_with_retry()` 函数，429/5xx/网络错误时指数退避重试（最多5次）；文件下载同样支持重试；`run_all_subfolders.sh` 子文件夹之间冷却3秒；内置 HF_TOKEN 避免匿名限流
 - **优化终端输出**：所有 Python 脚本加 `flush=True` 保证实时输出；`run_all_subfolders.sh` 改用 `tee` 实时显示子流程输出（不再静默捕获）；大量跳过文件时折叠输出避免刷屏
 - **新增 `run_all_subfolders.sh`**：批量脚本，只传环境名即可依次处理所有12种轨迹类型，结束后输出磁盘空间和汇总报告（含成功/跳过/失败统计）

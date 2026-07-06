@@ -376,12 +376,18 @@ def convert_one_metadata_traj(metadata_path, instruction, output_path, image_pre
 # ---------------------------------------------------------------------------
 
 def default_image_prefix(env_id, traj_id):
-    """基于 env_id/traj_id 推导 image_prefix, 不依赖任何硬编码目录名.
+    """基于 env_id/traj_id 推导 image_prefix.
 
-    默认: <env_id>/<traj_id> (例如 ``env_ue_bigcity/astar_data/high_average/<traj_id>``).
-    训练时把 restored_dataset/ 对应路径软链/挂载到 datasets/ 下对应位置即可.
+    metadata 中 env_id 形如: env_ue_bigcity/astar_data/high_average
+    实际存储路径为:           env_ue_bigcity/high_average/<traj_id>/images/xxx.png
+
+    去掉中间的 astar_data 层级，使标注路径与磁盘存储一致。
     """
-    return f"{env_id}/{traj_id}"
+    # env_id = "env_ue_bigcity/astar_data/high_average"
+    # 去掉 astar_data → "env_ue_bigcity/high_average"
+    parts = env_id.replace("\\", "/").split("/")
+    cleaned_parts = [p for p in parts if p != "astar_data"]
+    return "/".join(cleaned_parts) + "/" + traj_id
 
 
 def iter_metadata_files(root):
