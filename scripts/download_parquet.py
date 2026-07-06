@@ -26,12 +26,13 @@ BASE_FOLDER = "traj"
 LOCAL_BASE_DIR = "./openfly_syn_parquet"
 TOKEN = os.environ.get("HF_TOKEN", "")
 MIRROR_URL = "https://hf-mirror.com"
-DEFAULT_WORKERS = 16
+DEFAULT_WORKERS = 4
 DEFAULT_ENV = "env_ue_bigcity"
 CHUNK_SIZE = 65536  # 64KB per chunk for better throughput
 DOWNLOAD_TIMEOUT = 120  # 大文件需要更长超时
 API_MAX_RETRIES = 5  # API 请求最大重试次数
 API_RETRY_BASE_WAIT = 10  # 重试基础等待秒数（指数退避）
+DOWNLOAD_INTERVAL = 0.3  # 每个文件下载后的间隔秒数，控制请求速率
 # ==================================================
 
 
@@ -149,6 +150,9 @@ def download_single_file(file_path, local_dir, headers):
                 continue
             return ("fail", f"❌ 失败: {file_name} ({e})")
 
+    # 不应到这里，但安全兜底
+    return ("fail", f"❌ 失败: {file_name} (重试耗尽)")
+
 
 def download_files(parquet_files, local_base_dir, headers, workers, label=""):
     """下载一批 parquet 文件，返回 (success, skip, fail) 计数。"""
@@ -255,24 +259,102 @@ def download_all_subfolders(env, workers):
         exit(1)
 
 
+def scan_and_cache(env):
+    """一次性扫描整个环境的文件列表，缓存到本地 JSON 文件。"""
+    folder_path = f"{BASE_FOLDER}/{env}/astar_data"
+    headers = {"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}
+
+    print(f"🔍 一次性扫描 {folder_path} 下全部文件列表...", flush=True)
+    all_files = fetch_all_parquet_files(folder_path, headers)
+
+    if not all_files:
+        print(f"⚠️ 未找到任何 parquet 文件: {folder_path}", flush=True)
+        exit(1)
+
+    # 按子文件夹分组
+    groups = {}
+    for fp in all_files:
+        parts = fp.split("/")
+        if len(parts) >= 5:
+            subfolder = parts[3]
+            groups.setdefault(subfolder, []).append(fp)
+
+    # 缓存到本地文件
+    import json
+    cache_dir = os.path.join(LOCAL_BASE_DIR, env)
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_path = os.path.join(cache_dir, "_file_list_cache.json")
+    with open(cache_path, 'w') as f:
+        json.dump(groups, f)
+
+    print(f"✅ 扫描完毕！共 {len(all_files)} 个文件，分布在 {len(groups)} 个子文件夹中。", flush=True)
+    print(f"   缓存已保存: {cache_path}", flush=True)
+    for sub, files in sorted(groups.items()):
+        print(f"   • {sub}: {len(files)} 个文件", flush=True)
+
+
+def download_from_cache(env, subfolder, workers):
+    """从缓存的文件列表中读取指定子文件夹的文件，直接下载（不调 API）。"""
+    import json
+    cache_path = os.path.join(LOCAL_BASE_DIR, env, "_file_list_cache.json")
+
+    if not os.path.exists(cache_path):
+        print(f"⚠️ 缓存文件不存在: {cache_path}", flush=True)
+        print(f"   请先运行: python scripts/download_parquet.py --env {env} --scan-only", flush=True)
+        exit(1)
+
+    with open(cache_path) as f:
+        groups = json.load(f)
+
+    if subfolder not in groups:
+        print(f"⚠️ 缓存中没有子文件夹 '{subfolder}'，可能该环境下不存在此轨迹类型", flush=True)
+        print(f"   可用的子文件夹: {', '.join(sorted(groups.keys()))}", flush=True)
+        exit(1)
+
+    parquet_files = groups[subfolder]
+    local_dir = os.path.join(LOCAL_BASE_DIR, env, "astar_data", subfolder)
+    os.makedirs(local_dir, exist_ok=True)
+    headers = {"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}
+
+    print(f"📦 从缓存加载 {subfolder}: {len(parquet_files)} 个文件", flush=True)
+    print(f"🚀 启动 {workers} 线程下载...\n", flush=True)
+
+    success, skip, fail = download_files(parquet_files, local_dir, headers, workers)
+
+    print(f"\n🎉 下载完成！成功: {success}, 跳过: {skip}, 失败: {fail}", flush=True)
+    if fail > 0:
+        print(f"⚠️ 有 {fail} 个文件下载失败，请重新运行补齐", flush=True)
+        exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(description="下载 OpenFly parquet 数据")
     parser.add_argument("--env", default=DEFAULT_ENV,
                         help=f"仿真环境名，如 env_ue_bigcity, env_airsim_16 等（默认 {DEFAULT_ENV}）")
     parser.add_argument("--subfolder", default=None,
-                        help="轨迹类型，如 high_average, high_long 等（不指定则下载整个环境）")
+                        help="轨迹类型，如 high_average, high_long 等")
+    parser.add_argument("--scan-only", action="store_true",
+                        help="只扫描文件列表并缓存到本地（不下载）")
+    parser.add_argument("--from-cache", action="store_true",
+                        help="从缓存的文件列表下载（不调 API）")
     parser.add_argument("--all", action="store_true",
-                        help="下载指定环境下所有子文件夹（一次 API 扫描）")
+                        help="一次性下载整个环境所有子文件夹")
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS,
                         help=f"并发下载线程数（默认 {DEFAULT_WORKERS}）")
     args = parser.parse_args()
 
-    if args.all:
+    if args.scan_only:
+        scan_and_cache(args.env)
+    elif args.from_cache:
+        if not args.subfolder:
+            parser.error("--from-cache 需要配合 --subfolder 使用")
+        download_from_cache(args.env, args.subfolder, args.workers)
+    elif args.all:
         download_all_subfolders(args.env, args.workers)
     elif args.subfolder:
         download_subfolder(args.env, args.subfolder, args.workers)
     else:
-        parser.error("请指定 --subfolder 或 --all")
+        parser.error("请指定 --subfolder、--all 或 --scan-only")
 
 
 if __name__ == "__main__":

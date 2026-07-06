@@ -84,6 +84,19 @@ echo ""
 # =============================================================================
 if [ "${SKIP_DOWNLOAD}" = "1" ]; then
     echo -e "${YELLOW} [阶段 1/6] 下载 parquet 数据 — 已跳过（SKIP_DOWNLOAD=1）${NC}"
+elif [ "${USE_CACHE}" = "1" ]; then
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW} [阶段 1/6] 下载 parquet 数据（从缓存列表）${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+    python scripts/download_parquet.py --env "$ENV" --subfolder "$SUBFOLDER" --from-cache
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ 阶段1完成: parquet 数据下载成功${NC}"
+    else
+        echo -e "${RED}❌ 阶段1失败: parquet 数据下载出错，终止流水线${NC}"
+        exit 1
+    fi
 else
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${YELLOW} [阶段 1/6] 下载 parquet 数据${NC}"
