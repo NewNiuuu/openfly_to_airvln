@@ -2,6 +2,9 @@
 openfly_syn_parquet/
 openfly_to_airvln_data/
 
+# 环境变量（含 HF_TOKEN，不上传）
+.env
+
 # Python
 __pycache__/
 *.pyc

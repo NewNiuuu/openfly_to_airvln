@@ -3,6 +3,11 @@
 # run_all_subfolders.sh
 # =============================================================================
 # 对指定仿真环境下的所有轨迹类型依次执行完整6阶段流水线，最后输出汇总报告。
+
+# 加载环境变量（HF_TOKEN）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+[ -f "$PROJECT_DIR/.env" ] && source "$PROJECT_DIR/.env"
 #
 # 用法:
 #   bash scripts/run_all_subfolders.sh <env>

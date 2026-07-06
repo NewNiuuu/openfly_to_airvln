@@ -3,6 +3,11 @@
 # run_pipeline.sh
 # =============================================================================
 # 自动化执行 OpenFly → AirVLN 数据转换6阶段流水线
+
+# 加载环境变量（HF_TOKEN）
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_PROJECT_DIR="$(dirname "$_SCRIPT_DIR")"
+[ -f "$_PROJECT_DIR/.env" ] && source "$_PROJECT_DIR/.env"
 #
 # 用法:
 #   bash scripts/run_pipeline.sh <env> <subfolder>
