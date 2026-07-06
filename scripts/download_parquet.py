@@ -174,7 +174,6 @@ def download_subfolder(env, subfolder, workers):
     fail_count = 0
     total_files = len(parquet_files)
 
-    # 核心修正3：多线程并发下载
     with ThreadPoolExecutor(max_workers=workers) as executor:
         future_to_file = {
             executor.submit(download_single_file, fp, local_dir, headers): fp
