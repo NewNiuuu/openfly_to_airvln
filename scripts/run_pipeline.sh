@@ -57,6 +57,7 @@ if [ -z "$1" ]; then
 fi
 
 # 智能参数解析: 如果只有1个参数，视为 subfolder（兼容旧用法）
+# 支持环境变量 SKIP_DOWNLOAD=1 跳过下载阶段
 if [ -z "$2" ]; then
     ENV="$DEFAULT_ENV"
     SUBFOLDER="$1"
@@ -81,17 +82,21 @@ echo ""
 # =============================================================================
 # 阶段1: 下载 parquet 数据
 # =============================================================================
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${YELLOW} [阶段 1/6] 下载 parquet 数据${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-
-python scripts/download_parquet.py --env "$ENV" --subfolder "$SUBFOLDER"
-
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ 阶段1完成: parquet 数据下载成功${NC}"
+if [ "${SKIP_DOWNLOAD}" = "1" ]; then
+    echo -e "${YELLOW} [阶段 1/6] 下载 parquet 数据 — 已跳过（SKIP_DOWNLOAD=1）${NC}"
 else
-    echo -e "${RED}❌ 阶段1失败: parquet 数据下载出错，终止流水线${NC}"
-    exit 1
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW} [阶段 1/6] 下载 parquet 数据${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+    python scripts/download_parquet.py --env "$ENV" --subfolder "$SUBFOLDER"
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ 阶段1完成: parquet 数据下载成功${NC}"
+    else
+        echo -e "${RED}❌ 阶段1失败: parquet 数据下载出错，终止流水线${NC}"
+        exit 1
+    fi
 fi
 echo ""
 
