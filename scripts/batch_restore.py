@@ -125,7 +125,13 @@ def main():
 
     print(f"\n🎉 解压完成！成功: {success_count}, 跳过: {skip_count}, 失败: {fail_count}", flush=True)
     if fail_count > 0:
-        exit(1)
+        fail_rate = fail_count / total_files
+        if fail_rate > 0.1:
+            # 超过10%失败率才中断
+            print(f"❌ 失败率 {fail_rate:.1%} 超过阈值，中断流程", flush=True)
+            exit(1)
+        else:
+            print(f"⚠️ 有 {fail_count} 个文件解压失败（{fail_rate:.1%}），继续后续阶段", flush=True)
 
 
 if __name__ == "__main__":
