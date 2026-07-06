@@ -31,7 +31,7 @@ DEFAULT_ENV = "env_ue_bigcity"
 CHUNK_SIZE = 65536  # 64KB per chunk for better throughput
 DOWNLOAD_TIMEOUT = 120  # 大文件需要更长超时
 API_MAX_RETRIES = 5  # API 请求最大重试次数
-API_RETRY_BASE_WAIT = 10  # 重试基础等待秒数（指数退避）
+API_RETRY_BASE_WAIT = 60  # 429限流重试基础等待秒数（5分钟窗口，需要等久一点）
 DOWNLOAD_INTERVAL = 0.3  # 每个文件下载后的间隔秒数，控制请求速率
 # ==================================================
 
