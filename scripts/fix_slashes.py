@@ -14,6 +14,7 @@ import argparse
 
 # ===================== 配置项 =====================
 DATASET_BASE_DIR = "./openfly_to_airvln_data"
+DEFAULT_ENV = "env_ue_bigcity"
 # ==================================================
 
 
@@ -70,11 +71,13 @@ def fix_metadata_paths(dataset_dir):
 
 def main():
     parser = argparse.ArgumentParser(description="修正 metadata.json 中的路径斜杠问题")
+    parser.add_argument("--env", default=DEFAULT_ENV,
+                        help=f"仿真环境名，如 env_ue_bigcity, env_airsim_16 等（默认 {DEFAULT_ENV}）")
     parser.add_argument("--subfolder", required=True,
-                        help="子文件夹名，如 high_average, high_long 等")
+                        help="轨迹类型，如 high_average, high_long 等")
     args = parser.parse_args()
 
-    dataset_dir = os.path.join(DATASET_BASE_DIR, args.subfolder)
+    dataset_dir = os.path.join(DATASET_BASE_DIR, args.env, args.subfolder)
     fix_metadata_paths(dataset_dir)
 
 

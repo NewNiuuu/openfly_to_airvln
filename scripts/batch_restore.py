@@ -15,8 +15,9 @@ import pyarrow.parquet as pq
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ===================== 配置项 =====================
-PARQUET_BASE_DIR = "./openfly_syn_parquet/env_ue_bigcity/astar_data"
+PARQUET_BASE_DIR = "./openfly_syn_parquet"
 OUTPUT_BASE_DIR = "./openfly_to_airvln_data"
+DEFAULT_ENV = "env_ue_bigcity"
 MAX_WORKERS = 16
 # ==================================================
 
@@ -77,14 +78,16 @@ def restore_single_parquet(parquet_path, out_dir):
 
 def main():
     parser = argparse.ArgumentParser(description="批量解压 parquet 数据为图片+metadata")
+    parser.add_argument("--env", default=DEFAULT_ENV,
+                        help=f"仿真环境名，如 env_ue_bigcity, env_airsim_16 等（默认 {DEFAULT_ENV}）")
     parser.add_argument("--subfolder", required=True,
-                        help="子文件夹名，如 high_average, high_long 等")
+                        help="轨迹类型，如 high_average, high_long 等")
     parser.add_argument("--workers", type=int, default=MAX_WORKERS,
                         help=f"并发线程数，默认 {MAX_WORKERS}")
     args = parser.parse_args()
 
-    src_dir = os.path.join(PARQUET_BASE_DIR, args.subfolder)
-    out_dir = os.path.join(OUTPUT_BASE_DIR, args.subfolder)
+    src_dir = os.path.join(PARQUET_BASE_DIR, args.env, "astar_data", args.subfolder)
+    out_dir = os.path.join(OUTPUT_BASE_DIR, args.env, args.subfolder)
 
     if not os.path.exists(src_dir):
         print(f"❌ 源目录不存在: {src_dir}")

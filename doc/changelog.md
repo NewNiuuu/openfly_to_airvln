@@ -1,5 +1,16 @@
 # 项目运行日志
 
+## 2026-07-06
+
+- **新增 `run_all_subfolders.sh`**：批量脚本，只传环境名即可依次处理所有12种轨迹类型，结束后输出磁盘空间和汇总报告（含成功/跳过/失败统计）
+- **新增阶段5 `cleanup_unused_frames.py`**：标注生成后删除未被引用的图片帧（step=4抽帧逻辑导致约3/4的帧冗余），支持 `--dry-run` 预览
+- **新增阶段6 `cleanup_parquet.py`**：删除已解压的中间 parquet 文件释放磁盘空间，支持 `--dry-run` 预览
+- **所有脚本新增 `--env` 参数**：支持 OpenFly 全部14个仿真环境（不再硬编码 env_ue_bigcity），省略时默认 env_ue_bigcity 保持向后兼容
+- **重写 `run_pipeline.sh`**：支持双参数 `<env> <subfolder>`，从4阶段扩展为6阶段
+- **数据目录重新组织**：`openfly_to_airvln_data/<env>/<subfolder>/`，标注输出到 `annotation/<env>/`
+- **更新 README.md + CLAUDE.md**：同步所有变更
+- **创建 conda 环境**：`openfly_data`（Python 3.10）
+
 ## 2026-06-28
 
 - **README 虚拟环境改为 conda 流程**：`python -m venv` → `conda create` + `conda activate`

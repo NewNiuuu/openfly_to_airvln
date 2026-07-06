@@ -21,11 +21,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ===================== 配置项 =====================
 REPO_ID = "IPEC-COMMUNITY/OpenFly"
-BASE_FOLDER = "traj/env_ue_bigcity/astar_data"
-LOCAL_BASE_DIR = "./openfly_syn_parquet/env_ue_bigcity/astar_data"
+BASE_FOLDER = "traj"
+LOCAL_BASE_DIR = "./openfly_syn_parquet"
 TOKEN = os.environ.get("HF_TOKEN", "")
 MIRROR_URL = "https://hf-mirror.com"
 DEFAULT_WORKERS = 16
+DEFAULT_ENV = "env_ue_bigcity"
 CHUNK_SIZE = 65536  # 64KB per chunk for better throughput
 DOWNLOAD_TIMEOUT = 120  # 大文件需要更长超时
 # ==================================================
@@ -99,9 +100,9 @@ def download_single_file(file_path, local_dir, headers):
         return ("fail", f"❌ 失败: {file_name} ({e})")
 
 
-def download_subfolder(subfolder, workers):
-    folder_path = f"{BASE_FOLDER}/{subfolder}"
-    local_dir = os.path.join(LOCAL_BASE_DIR, subfolder)
+def download_subfolder(env, subfolder, workers):
+    folder_path = f"{BASE_FOLDER}/{env}/astar_data/{subfolder}"
+    local_dir = os.path.join(LOCAL_BASE_DIR, env, "astar_data", subfolder)
 
     # 确保下载文件夹存在
     os.makedirs(local_dir, exist_ok=True)
@@ -148,12 +149,14 @@ def download_subfolder(subfolder, workers):
 
 def main():
     parser = argparse.ArgumentParser(description="下载 OpenFly parquet 数据")
+    parser.add_argument("--env", default=DEFAULT_ENV,
+                        help=f"仿真环境名，如 env_ue_bigcity, env_airsim_16 等（默认 {DEFAULT_ENV}）")
     parser.add_argument("--subfolder", required=True,
-                        help="子文件夹名，如 high_average, high_long 等")
+                        help="轨迹类型，如 high_average, high_long 等")
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS,
                         help=f"并发下载线程数（默认 {DEFAULT_WORKERS}）")
     args = parser.parse_args()
-    download_subfolder(args.subfolder, args.workers)
+    download_subfolder(args.env, args.subfolder, args.workers)
 
 
 if __name__ == "__main__":
