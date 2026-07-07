@@ -47,6 +47,8 @@ ALL_SUBFOLDERS=(
     "medium_average_updown"
     "medium_long_updown"
     "medium_short_updown"
+    "long"
+    "short"
 )
 
 # =============================================================================

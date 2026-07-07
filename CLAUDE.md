@@ -25,7 +25,8 @@ openfly_to_airvln/
 │   ├── fix_slashes.py                            # 阶段4：修正路径斜杠
 │   ├── cleanup_unused_frames.py                  # 阶段5：删除未引用的帧
 │   ├── cleanup_parquet.py                        # 阶段6：删除中间parquet文件
-│   ├── run_pipeline.sh                           # 单个轨迹类型自动化脚本
+│   ├── prepare_and_upload_blob.py                # 阶段7：清洗+加路径前缀+azcopy上传Blob
+│   ├── run_pipeline.sh                           # 单个轨迹类型自动化脚本（阶段8删本地内联于此）
 │   └── run_all_subfolders.sh                     # 批量处理整个环境的所有轨迹类型
 ├── doc/
 │   └── changelog.md                              # 项目运行日志
@@ -59,7 +60,7 @@ openfly_to_airvln/
 cd /root/nyp/openfly_to_airvln
 conda activate openfly_data
 
-# 处理一个环境下全部12种轨迹类型
+# 处理一个环境下全部轨迹类型（依次走完整8阶段，含上传Blob）
 bash scripts/run_all_subfolders.sh env_ue_bigcity
 
 # 省略参数默认 env_ue_bigcity
@@ -118,20 +119,32 @@ python scripts/cleanup_unused_frames.py --env env_airsim_16 --subfolder high_ave
 python scripts/cleanup_parquet.py --env env_airsim_16 --subfolder high_average
 # 预览模式：
 python scripts/cleanup_parquet.py --env env_airsim_16 --subfolder high_average --dry-run
+
+# 阶段7: 清洗+上传Blob（单个子文件夹）
+python scripts/prepare_and_upload_blob.py --env env_airsim_16 --subfolder high_average
+# 整环境模式（不带 --subfolder）：清空标注→修路径→上传整个环境
+python scripts/prepare_and_upload_blob.py --env env_airsim_16
+# 预览 / 只清洗不上传：
+python scripts/prepare_and_upload_blob.py --env env_airsim_16 --dry-run
+python scripts/prepare_and_upload_blob.py --env env_airsim_16 --skip-upload
+# 阶段8（删本地）内联在 run_pipeline.sh，无独立脚本；SKIP_UPLOAD=1 可跳过阶段7-8
 ```
 
-## 6阶段流水线
+## 8阶段流水线
 
 1. **下载** (`download_parquet.py`): 从 hf-mirror.com 下载指定环境+轨迹类型的 parquet 文件
    - `?recursive=true` 递归穿透子目录
    - 自动翻页突破 HF API 1000 文件上限
    - 16线程并发下载（`--workers` 可调）
    - 断点续传：已存在文件自动跳过
-2. **解压** (`batch_restore.py`): 16线程并发将 parquet 解包为 metadata.json + images/，支持跳过已还原文件
+   - 429/5xx/网络错误指数退避重试（最多5次）；批量模式先 `--scan-only` 预扫描缓存文件列表，各子文件夹用 `--from-cache` 复用，避免重复调 API
+2. **解压** (`batch_restore.py`): 16线程并发将 parquet 解包为 metadata.json + images/，支持跳过已还原文件（少量失败不中断流水线）
 3. **转标注** (`convert_metadata_to_airvln.py`): 读取 metadata.json + train.json 中的 instruction，生成 AirVLN 格式 jsonl
 4. **修斜杠** (`fix_slashes.py`): 修正 metadata.json 中的路径反斜杠和文件名映射
 5. **清理未引用帧** (`cleanup_unused_frames.py`): 解析标注 JSONL，删除 images/ 中未被引用的图片帧（step=4 抽帧后约 3/4 帧冗余）
 6. **清理 parquet** (`cleanup_parquet.py`): 删除已解压的中间 parquet 文件释放磁盘空间
+7. **清洗+上传 Blob** (`prepare_and_upload_blob.py`): 删除空标注对应的数据、给标注 JSONL 的 image 路径加 `vln/openfly` 前缀，用 azcopy 上传数据和标注到 Azure Blob（`output/liyan/vln/openfly/<env>/`）。`SKIP_UPLOAD=1` 可跳过
+8. **删本地** (内联于 `run_pipeline.sh`): 上传成功后删除本地图片数据释放磁盘空间。`SKIP_UPLOAD=1` 时一并跳过
 
 ## 关键配置
 
@@ -140,6 +153,8 @@ python scripts/cleanup_parquet.py --env env_airsim_16 --subfolder high_average -
 - 并发线程: 16（可通过 `--workers` 参数调整）
 - 默认环境: `env_ue_bigcity`（所有脚本省略 `--env` 时使用）
 - 每阶段有断点续传/跳过机制，中断后可重跑
+- Azure Blob 上传: 目标 `output/liyan/vln/openfly/<env>/`，标注 image 路径前缀 `vln/openfly`，SAS token 见环境变量 `BLOB_SAS_TOKEN`（`.env` 中配置）
+- `SKIP_UPLOAD=1` 跳过阶段7-8（只做本地转换不上传）；`SKIP_DOWNLOAD=1` 跳过阶段1
 
 ## 注意事项
 

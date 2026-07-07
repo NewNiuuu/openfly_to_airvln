@@ -1,5 +1,14 @@
 # 项目运行日志
 
+## 2026-07-07
+
+- **文档同步到 8 阶段**：`CLAUDE.md` 从「6 阶段」更新为「8 阶段」，补充阶段7（`prepare_and_upload_blob.py` 清洗+加路径前缀+azcopy 上传 Blob）、阶段8（`run_pipeline.sh` 内联删本地）；目录结构补上传脚本；新增 Blob 上传配置与 `SKIP_UPLOAD`/`SKIP_DOWNLOAD` 说明
+- **回填 07-06 未记录的代码变更**（下方为当时已提交但漏记的改动）：
+  - **Blob 上传集成（阶段7-8）**：新增 `prepare_and_upload_blob.py`，流水线跑完本地转换后清洗空标注、给标注 image 路径加 `vln/openfly` 前缀、azcopy 上传到 `output/liyan/vln/openfly/<env>/`，上传成功即删本地图片释放磁盘
+  - **下载阶段重构**：改为批量前一次 `--scan-only` 预扫描缓存文件列表，各子文件夹 `--from-cache` 复用，硬盘同时只保留一份数据；预扫描失败自动降级为逐个扫描；重试等待增至 60s 适配 5 分钟限流窗口；恢复 16 线程并发
+  - **稳定性修复**：修复 `HF_TOKEN` 在脚本中未生效；解压少量失败不再中断整条流水线
+- **`run_all_subfolders.sh` 轨迹列表新增 `long`/`short`**：覆盖部分环境特有的轨迹类型
+
 ## 2026-07-06
 
 - **修正标注 image 路径**：`default_image_prefix` 去掉 `astar_data` 层级，JSONL 中 image 路径改为 `<env>/<subfolder>/<traj_id>/images/xxx.png`，与磁盘存储路径一致
